@@ -266,5 +266,12 @@ chmod +x bedrock_server
 echo -e "Install Completed for Bedrock"
 echo -e "Installation Complete for all server types"
 
+# Start Script
+echo -e "Creating start script"
+curl -o Startup.sh https://raw.githubusercontent.com/TheAFKGamer10/MultiMinecraftPterodactyl/main/Startup.sh
+
+# Permissions
 chmod -R 777 /mnt/server/*
-chmod 444 startup.sh
+chmod 444 Startup.sh
+
+echo -e "Installation Complete"
