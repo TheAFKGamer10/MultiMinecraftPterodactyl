@@ -1,6 +1,6 @@
 #!/bin/bash
 apt update
-apt install -y curl jq zip unzip wget nodejs
+apt install -y curl jq zip unzip wget
 
 mkdir -p /mnt/server
 cd /mnt/server
