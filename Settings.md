@@ -36,6 +36,12 @@ CHEATS = "false"
             "query.port": "{{server.build.default.port}}"
         }
     },
+    "sponge/eula.txt": {
+        "parser": "properties",
+        "find": {
+            "eula": "true"
+        }
+    },
     "paper/server.properties": {
         "parser": "properties",
         "find": {
@@ -44,12 +50,24 @@ CHEATS = "false"
             "query.port": "{{server.build.default.port}}"
         }
     },
+    "paper/eula.txt": {
+        "parser": "properties",
+        "find": {
+            "eula": "true"
+        }
+    },
     "forge/server.properties": {
         "parser": "properties",
         "find": {
             "server-ip": "0.0.0.0",
             "server-port": "{{server.build.default.port}}",
             "query.port": "{{server.build.default.port}}"
+        }
+    },
+    "forge/eula.txt": {
+        "parser": "properties",
+        "find": {
+            "eula": "true"
         }
     },
     "bungeecord/config.yml": {
@@ -62,12 +80,24 @@ CHEATS = "false"
             }
         }
     },
+    "bungeecord/eula.txt": {
+        "parser": "properties",
+        "find": {
+            "eula": "true"
+        }
+    },
     "java/server.properties": {
         "parser": "properties",
         "find": {
             "server-ip": "0.0.0.0",
             "server-port": "{{server.build.default.port}}",
             "query.port": "{{server.build.default.port}}"
+        }
+    },
+    "java/eula.txt": {
+        "parser": "properties",
+        "find": {
+            "eula": "true"
         }
     },
     "bedrock/server.properties": {
@@ -78,6 +108,12 @@ CHEATS = "false"
             "gamemode": "{{server.build.env.GAMEMODE}}",
             "difficulty": "{{server.build.env.DIFFICULTY}}",
             "allow-cheats": "{{server.build.env.CHEATS}}"
+        }
+    },
+    "bedrock/eula.txt": {
+        "parser": "properties",
+        "find": {
+            "eula": "true"
         }
     }
 }
