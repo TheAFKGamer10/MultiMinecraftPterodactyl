@@ -269,10 +269,10 @@ echo -e "Installation Complete for all server types"
 cd /mnt/server
 # Start Script
 echo -e "Creating start script"
-curl -o Startup.sh https://raw.githubusercontent.com/TheAFKGamer10/MultiMinecraftPterodactyl/main/Startup.sh
+curl -o startup.sh https://raw.githubusercontent.com/TheAFKGamer10/MultiMinecraftPterodactyl/main/startup.sh
 
 # Permissions
 chmod -R 777 /mnt/server/*
-chmod a+r Startup.sh
+chmod a+r startup.sh
 
 echo -e "Installation Complete"
