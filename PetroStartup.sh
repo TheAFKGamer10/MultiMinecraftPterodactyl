@@ -9,7 +9,8 @@ rm -f start.sh
 rm -f install.txt
 wget https://raw.githubusercontent.com/TheAFKGamer10/MultiMinecraftPterodactyl/main/Install.sh
 chmod -x Install.sh
-bash Install.sh > install.txt
+echo -e "Installation Started. Please be patient as this can take a while depending on your server specs."
+bash Install.sh &> install.txt
 rm -f Install.sh
 
 echo -e "Installation Complete"
