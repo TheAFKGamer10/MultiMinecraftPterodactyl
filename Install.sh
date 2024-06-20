@@ -273,6 +273,6 @@ curl -o Startup.sh https://raw.githubusercontent.com/TheAFKGamer10/MultiMinecraf
 
 # Permissions
 chmod -R 777 /mnt/server/*
-chmod 444 Startup.sh
+chmod a+r Startup.sh
 
 echo -e "Installation Complete"
