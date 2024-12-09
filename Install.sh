@@ -6,7 +6,7 @@ apt install -y curl jq zip unzip wget
 mkdir -p /mnt/server/sponge
 cd /mnt/server/sponge
 
-curl -sSL "https://repo.spongepowered.org/maven/org/spongepowered/spongevanilla/${SPONGE_VERSION}/spongevanilla-${SPONGE_VERSION}.jar" -o ${SERVER_JARFILE}
+curl -sSL "https://repo.spongepowered.org/repository/maven-releases/org/spongepowered/spongeforge/${SPONGE_VERSION}/spongeforge-${SPONGE_VERSION}-universal.jar" -o ${SERVER_JARFILE}
 
 echo -e "Install Complete for SpongeVanilla"
 
@@ -20,8 +20,8 @@ if [ -n "${DL_PATH}" ]; then
     echo -e "Using supplied download url: ${DL_PATH}"
     DOWNLOAD_URL=`eval echo $(echo ${DL_PATH} | sed -e 's/{{/${/g' -e 's/}}/}/g')`
 else
-    VER_EXISTS=`curl -s https://api.papermc.io/v2/projects/${PROJECT} | jq -r --arg VERSION $MINECRAFT_VERSION '.versions[] | contains($VERSION)' | grep -m1 true`
-    LATEST_VERSION=`curl -s https://api.papermc.io/v2/projects/${PROJECT} | jq -r '.versions' | jq -r '.[-1]'`
+    VER_EXISTS=`curl -s https://api.papermc.io/v2/projects/${PROJECT} | jq -r --arg VERSION $MINECRAFT_VERSION '.versions[] | select(. == $VERSION)' | grep -m1 true`
+    LATEST_VERSION=`curl -s https://api.papermc.io/v2/projects/${PROJECT} | jq -r '.versions[-1]'`
 
     if [ "${VER_EXISTS}" == "true" ]; then
         echo -e "Version is valid. Using version ${MINECRAFT_VERSION}"
@@ -30,8 +30,8 @@ else
         MINECRAFT_VERSION=${LATEST_VERSION}
     fi
 
-    BUILD_EXISTS=`curl -s https://api.papermc.io/v2/projects/${PROJECT}/versions/${MINECRAFT_VERSION} | jq -r --arg BUILD ${BUILD_NUMBER} '.builds[] | tostring | contains($BUILD)' | grep -m1 true`
-    LATEST_BUILD=`curl -s https://api.papermc.io/v2/projects/${PROJECT}/versions/${MINECRAFT_VERSION} | jq -r '.builds' | jq -r '.[-1]'`
+    BUILD_EXISTS=`curl -s https://api.papermc.io/v2/projects/${PROJECT}/versions/${MINECRAFT_VERSION} | jq -r --arg BUILD ${BUILD_NUMBER} '.builds[] | tostring | select(. == $BUILD)' | grep -m1 true`
+    LATEST_BUILD=`curl -s https://api.papermc.io/v2/projects/${PROJECT}/versions/${MINECRAFT_VERSION} | jq -r '.builds[-1]'`
 
     if [ "${BUILD_EXISTS}" == "true" ]; then
         echo -e "Build is valid for version ${MINECRAFT_VERSION}. Using build ${BUILD_NUMBER}"
@@ -73,112 +73,119 @@ cd /mnt/server/forge
 
 # Remove spaces from the version number to avoid issues with curl
 FORGE_VERSION="$(echo "$FORGE_VERSION" | tr -d ' ')"
-MINECRAFT_VERSION="$(echo "$MINECRAFT_VERSION" | tr -d ' ')"
+MC_VERSION="$(echo "$MC_VERSION" | tr -d ' ')"
+if [ -z ${SERVER_JARFILE} ]; then 
+  SERVER_JARFILE=server.jar
+fi
 
 if [[ ! -z ${FORGE_VERSION} ]]; then
-    DOWNLOAD_LINK=https://maven.minecraftforge.net/net/minecraftforge/forge/${FORGE_VERSION}/forge-${FORGE_VERSION}
-    FORGE_JAR=forge-${FORGE_VERSION}*.jar
+  DOWNLOAD_LINK=https://maven.minecraftforge.net/net/minecraftforge/forge/${FORGE_VERSION}/forge-${FORGE_VERSION}
+  FORGE_JAR=forge-${FORGE_VERSION}*.jar
 else
-    JSON_DATA=$(curl -sSL https://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json)
+  JSON_DATA=$(curl -sSL https://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json)
 
-    if [[ "${MINECRAFT_VERSION}" == "latest" ]] || [[ "${MINECRAFT_VERSION}" == "" ]]; then
+  if [[ "${MC_VERSION}" == "latest" ]] || [[ "${MC_VERSION}" == "" ]]; then
     echo -e "getting latest version of forge."
-    MINECRAFT_VERSION=$(echo -e ${JSON_DATA} | jq -r '.promos | del(."latest-1.7.10") | del(."1.7.10-latest-1.7.10") | to_entries[] | .key | select(contains("latest")) | split("-")[0]' | sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n | tail -1)
+    MC_VERSION=$(echo -e ${JSON_DATA} | jq -r '.promos | del(.["latest-1.7.10"]) | del(.["1.7.10-latest-1.7.10"]) | to_entries[] | .key | select(contains("latest")) | split("-")[0]' | sort -t. -k 1,1n -k 2,2n -k 3,3n -k 4,4n | tail -1)
     BUILD_TYPE=latest
-    fi
+  fi
 
-    if [[ "${BUILD_TYPE}" != "recommended" ]] && [[ "${BUILD_TYPE}" != "latest" ]]; then
+  if [[ "${BUILD_TYPE}" != "recommended" ]] && [[ "${BUILD_TYPE}" != "latest" ]]; then
     BUILD_TYPE=recommended
-    fi
+  fi
 
-    echo -e "minecraft version: ${MINECRAFT_VERSION}"
-    echo -e "build type: ${BUILD_TYPE}"
+  echo -e "minecraft version: ${MC_VERSION}"
+  echo -e "build type: ${BUILD_TYPE}"
 
-    ## some variables for getting versions and things
-    FILE_SITE=https://maven.minecraftforge.net/net/minecraftforge/forge/
-    VERSION_KEY=$(echo -e ${JSON_DATA} | jq -r --arg MINECRAFT_VERSION "${MINECRAFT_VERSION}" --arg BUILD_TYPE "${BUILD_TYPE}" '.promos | del(."latest-1.7.10") | del(."1.7.10-latest-1.7.10") | to_entries[] | .key | select(contains($MINECRAFT_VERSION)) | select(contains($BUILD_TYPE))')
+  ## some variables for getting versions and things
+  FILE_SITE=https://maven.minecraftforge.net/net/minecraftforge/forge/
+  VERSION_KEY=$(echo -e ${JSON_DATA} | jq -r --arg MC_VERSION "${MC_VERSION}" --arg BUILD_TYPE "${BUILD_TYPE}" '.promos | del(.["latest-1.7.10"]) | del(.["1.7.10-latest-1.7.10"]) | to_entries[] | .key | select(contains($MC_VERSION)) | select(contains($BUILD_TYPE))')
 
-    ## locating the forge version
-    if [[ "${VERSION_KEY}" == "" ]] && [[ "${BUILD_TYPE}" == "recommended" ]]; then
+  ## locating the forge version
+  if [[ "${VERSION_KEY}" == "" ]] && [[ "${BUILD_TYPE}" == "recommended" ]]; then
     echo -e "dropping back to latest from recommended due to there not being a recommended version of forge for the mc version requested."
-    VERSION_KEY=$(echo -e ${JSON_DATA} | jq -r --arg MINECRAFT_VERSION "${MINECRAFT_VERSION}" '.promos | del(."latest-1.7.10") | del(."1.7.10-latest-1.7.10") | to_entries[] | .key | select(contains($MINECRAFT_VERSION)) | select(contains("latest"))')
-    fi
+    VERSION_KEY=$(echo -e ${JSON_DATA} | jq -r --arg MC_VERSION "${MC_VERSION}" '.promos | del(.["latest-1.7.10"]) | del(.["1.7.10-latest-1.7.10"]) | to_entries[] | .key | select(contains($MC_VERSION)) | select(contains("latest"))')
+  fi
 
-    ## Error if the mc version set wasn't valid.
-    if [ "${VERSION_KEY}" == "" ] || [ "${VERSION_KEY}" == "null" ]; then
+  ## Error if the mc version set wasn't valid.
+  if [ "${VERSION_KEY}" == "" ] || [ "${VERSION_KEY}" == "null" ]; then
     echo -e "The install failed because there is no valid version of forge for the version of minecraft selected."
     exit 1
-    fi
+  fi
 
-    FORGE_VERSION=$(echo -e ${JSON_DATA} | jq -r --arg VERSION_KEY "$VERSION_KEY" '.promos | .[$VERSION_KEY]')
+  FORGE_VERSION=$(echo -e ${JSON_DATA} | jq -r --arg VERSION_KEY "$VERSION_KEY" '.promos[$VERSION_KEY]')
 
-    if [[ "${MINECRAFT_VERSION}" == "1.7.10" ]] || [[ "${MINECRAFT_VERSION}" == "1.8.9" ]]; then
-    DOWNLOAD_LINK=${FILE_SITE}${MINECRAFT_VERSION}-${FORGE_VERSION}-${MINECRAFT_VERSION}/forge-${MINECRAFT_VERSION}-${FORGE_VERSION}-${MINECRAFT_VERSION}
-    FORGE_JAR=forge-${MINECRAFT_VERSION}-${FORGE_VERSION}-${MINECRAFT_VERSION}.jar
-    if [[ "${MINECRAFT_VERSION}" == "1.7.10" ]]; then
-        FORGE_JAR=forge-${MINECRAFT_VERSION}-${FORGE_VERSION}-${MINECRAFT_VERSION}-universal.jar
+  if [[ "${MC_VERSION}" == "1.7.10" ]] || [[ "${MC_VERSION}" == "1.8.9" ]]; then
+    DOWNLOAD_LINK=${FILE_SITE}${MC_VERSION}-${FORGE_VERSION}-${MC_VERSION}/forge-${MC_VERSION}-${FORGE_VERSION}-${MC_VERSION}
+    FORGE_JAR=forge-${MC_VERSION}-${FORGE_VERSION}-${MC_VERSION}.jar
+    if [[ "${MC_VERSION}" == "1.7.10" ]]; then
+      FORGE_JAR=forge-${MC_VERSION}-${FORGE_VERSION}-${MC_VERSION}-universal.jar
     fi
-    else
-    DOWNLOAD_LINK=${FILE_SITE}${MINECRAFT_VERSION}-${FORGE_VERSION}/forge-${MINECRAFT_VERSION}-${FORGE_VERSION}
-    FORGE_JAR=forge-${MINECRAFT_VERSION}-${FORGE_VERSION}.jar
-    fi
+  else
+    DOWNLOAD_LINK=${FILE_SITE}${MC_VERSION}-${FORGE_VERSION}/forge-${MC_VERSION}-${FORGE_VERSION}
+    FORGE_JAR=forge-${MC_VERSION}-${FORGE_VERSION}*.jar
+  fi
 fi
 
-#Adding .jar when not eding by SERVER_JARFILE
-if [[ ! $SERVER_JARFILE = *\.jar ]]; then
-    SERVER_JARFILE="$SERVER_JARFILE.jar"
+# Adding .jar when not ending by SERVER_JARFILE
+if [[ ! $SERVER_JARFILE = *.jar ]]; then
+  SERVER_JARFILE="$SERVER_JARFILE.jar"
 fi
 
-#Downloading jars
+# Downloading jars
 echo -e "Downloading forge version ${FORGE_VERSION}"
 echo -e "Download link is ${DOWNLOAD_LINK}"
 
 if [[ ! -z "${DOWNLOAD_LINK}" ]]; then
-    if curl --output /dev/null --silent --head --fail ${DOWNLOAD_LINK}-installer.jar; then
+  if curl -sSL --output /dev/null --head --fail ${DOWNLOAD_LINK}-installer.jar; then
     echo -e "installer jar download link is valid."
-    else
+  else
     echo -e "link is invalid. Exiting now"
     exit 2
-    fi
+  fi
 else
-    echo -e "no download link provided. Exiting now"
-    exit 3
+  echo -e "no download link provided. Exiting now"
+  exit 3
 fi
 
-curl -s -o installer.jar -sS ${DOWNLOAD_LINK}-installer.jar
+curl -sSL -o installer.jar ${DOWNLOAD_LINK}-installer.jar
 
-#Checking if downloaded jars exist
+# Checking if downloaded jars exist
 if [[ ! -f ./installer.jar ]]; then
-    echo "!!! Error downloading forge version ${FORGE_VERSION} !!!"
-    exit
+  echo "!!! Error downloading forge version ${FORGE_VERSION} !!!"
+  exit
 fi
 
-function  unix_args {
-    echo -e "Detected Forge 1.17 or newer version. Setting up forge unix args."
-    ln -sf libraries/net/minecraftforge/forge/*/unix_args.txt unix_args.txt
+function unix_args {
+  echo -e "Detected Forge 1.17 or newer version. Setting up forge unix args."
+  ln -sf libraries/net/minecraftforge/forge/*/unix_args.txt unix_args.txt
 }
 
 # Delete args to support downgrading/upgrading
 rm -rf libraries/net/minecraftforge/forge
 rm unix_args.txt
 
-#Installing server
+# Installing server
 echo -e "Installing forge server.\n"
-java -jar installer.jar --installServer || { echo -e "\nInstall failed using Forge version ${FORGE_VERSION} and Minecraft version ${MINECRAFT_VERSION}.\nShould you be using unlimited memory value of 0, make sure to increase the default install resource limits in the Wings config or specify exact allocated memory in the server Build Configuration instead of 0! \nOtherwise, the Forge installer will not have enough memory."; exit 4; }
+java -jar installer.jar --installServer || { echo -e "install failed using Forge version ${FORGE_VERSION} and Minecraft version ${MC_VERSION}"; exit 4; }
 
-# Check if we need a symlink for 1.17+ Forge JPMS args
-if [[ $MINECRAFT_VERSION =~ ^1\.(17|18|19|20|21|22|23) || $FORGE_VERSION =~ ^1\.(17|18|19|20|21|22|23) ]]; then
-    unix_args
-
-# Check if someone has set MC to latest but overwrote it with older Forge version, otherwise we would have false positives
-elif [[ $MINECRAFT_VERSION == "latest" && $FORGE_VERSION =~ ^1\.(17|18|19|20|21|22|23) ]]; then
-    unix_args
+if [ -f ${FORGE_JAR} ]; then
+  # For versions below 1.17 that ship with jar
+  mv $FORGE_JAR $SERVER_JARFILE
 else
-    # For versions below 1.17 that ship with jar
-    mv $FORGE_JAR $SERVER_JARFILE
+  # Check if we need a symlink for 1.17+ Forge JPMS args
+  if [[ $MC_VERSION =~ ^1\.(17|18|19|20|21|22|23) || $FORGE_VERSION =~ ^1\.(17|18|19|20|21|22|23) ]]; then
+    unix_args
+
+  # Check if someone has set MC to latest but overwrote it with older Forge version, otherwise we would have false positives
+  elif [[ $MC_VERSION == "latest" && $FORGE_VERSION =~ ^1\.(17|18|19|20|21|22|23) ]]; then
+    unix_args
+  fi
 fi
 
+echo -e "Deleting installer.jar file.\n"
 rm -rf installer.jar
+
 echo -e "Install Complete for Forge"
 
 
@@ -206,14 +213,14 @@ echo -e "latest version is $LATEST_VERSION"
 echo -e "latest snapshot is $LATEST_SNAPSHOT_VERSION"
 
 if [ -z "$VANILLA_VERSION" ] || [ "$VANILLA_VERSION" == "latest" ]; then
-    MANIFEST_URL=$(curl -sSL https://launchermeta.mojang.com/mc/game/version_manifest.json | jq --arg VERSION $LATEST_VERSION -r '.versions | .[] | select(.id== $VERSION )|.url')
+    MANIFEST_URL=$(curl -sSL https://launchermeta.mojang.com/mc/game/version_manifest.json | jq --arg VERSION $LATEST_VERSION -r '.versions[] | select(.id == $VERSION) | .url')
 elif [ "$VANILLA_VERSION" == "snapshot" ]; then
-    MANIFEST_URL=$(curl -sSL https://launchermeta.mojang.com/mc/game/version_manifest.json | jq --arg VERSION $LATEST_SNAPSHOT_VERSION -r '.versions | .[] | select(.id== $VERSION )|.url')
+    MANIFEST_URL=$(curl -sSL https://launchermeta.mojang.com/mc/game/version_manifest.json | jq --arg VERSION $LATEST_SNAPSHOT_VERSION -r '.versions[] | select(.id == $VERSION) | .url')
 else
-    MANIFEST_URL=$(curl -sSL https://launchermeta.mojang.com/mc/game/version_manifest.json | jq --arg VERSION $VANILLA_VERSION -r '.versions | .[] | select(.id== $VERSION )|.url')
+    MANIFEST_URL=$(curl -sSL https://launchermeta.mojang.com/mc/game/version_manifest.json | jq --arg VERSION $VANILLA_VERSION -r '.versions[] | select(.id == $VERSION) | .url')
 fi
 
-DOWNLOAD_URL=$(curl ${MANIFEST_URL} | jq .downloads.server | jq -r '. | .url')
+DOWNLOAD_URL=$(curl ${MANIFEST_URL} | jq -r '.downloads.server.url')
 
 echo -e "running: curl -o ${SERVER_JARFILE} $DOWNLOAD_URL"
 curl -o ${SERVER_JARFILE} $DOWNLOAD_URL
@@ -231,10 +238,10 @@ RANDVERSION=$(echo $((1 + $RANDOM % 4000)))
 if [ -z "${BEDROCK_VERSION}" ] || [ "${BEDROCK_VERSION}" == "latest" ]; then
     echo -e "\n Downloading latest Bedrock server"
     curl -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.$RANDVERSION.212 Safari/537.36" -H "Accept-Language: en" -H "Accept-Encoding: gzip, deflate" -o versions.html.gz https://www.minecraft.net/en-us/download/server/bedrock
-    DOWNLOAD_URL=$(zgrep -o 'https://minecraft.azureedge.net/bin-linux/[^"]*' versions.html.gz)
+    DOWNLOAD_URL=$(zgrep -o 'https://www.minecraft.net/bedrockdedicatedserver/bin-linux/[^"]*' versions.html.gz)
 else 
     echo -e "\n Downloading ${BEDROCK_VERSION} Bedrock server"
-    DOWNLOAD_URL=https://minecraft.azureedge.net/bin-linux/bedrock-server-$BEDROCK_VERSION.zip
+    DOWNLOAD_URL=https://www.minecraft.net/bedrockdedicatedserver/bin-linux/bedrock-server-$BEDROCK_VERSION.zip
 fi
 
 DOWNLOAD_FILE=$(echo ${DOWNLOAD_URL} | cut -d"/" -f5) # Retrieve archive name
@@ -267,12 +274,10 @@ echo -e "Install Completed for Bedrock"
 echo -e "Installation Complete for all server types"
 
 cd /mnt/server
-# Start Script
-echo -e "Creating start script"
-curl -o startup.sh https://raw.githubusercontent.com/TheAFKGamer10/MultiMinecraftPterodactyl/main/startup.sh
+
+curl -O https://raw.githubusercontent.com/TheAFKGamer10/MultiMinecraftPterodactyl/main/Startup.sh && chmod +x Startup.sh
 
 # Permissions
 chmod -R 777 /mnt/server/*
-chmod a+r startup.sh
 
 echo -e "Installation Complete"
